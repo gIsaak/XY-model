@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib import animation
+import matplotlib.animation as animation
 import time
 np.random.seed(42)
 
@@ -37,14 +37,29 @@ class Ising:
                     self._grow_cluster(cluster, nbr)
         return cluster
 
-    def Wolff(self, show_cluster=False):
+    def Wolff(self):
         """Performs one Wolff's single custer algorithm iteration"""
         cluster = np.ones(self.state.shape, dtype=float)
         location = np.random.randint(0, self.N)
         cluster = self._grow_cluster(cluster, location)
         self.state *= cluster
-        if show_cluster == True:
-            print((1-cluster)/2)
+        return self.state
+
+    def Wolff_animation(self, times, delay=20):
+        """Animated Wolff's single custer algorithm
+           In: times (int): number of repetition times
+               delay (int): delay between frames in ms"""
+        print(times)
+        def update(i):
+            image.set_array(self.Wolff())
+            return image,
+
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        image = ax.imshow(self.state, cmap=plt.cm.PiYG, origin='lower')
+        ax.set_title('T = %.1f  J = %.1f' %(self.T, self.J))
+        ani = animation.FuncAnimation(fig, update, frames=times, interval=delay, blit=True, save_count=1000)
+        plt.show()
 
 
     def _get_ij(self, num):
@@ -57,9 +72,9 @@ class Ising:
         plt.show()
 
 
-L, J, T = 100, 1, 1
+L, J, T = 10, 1, 2
 system = Ising(L, J, T)
-system.plot_state()
-for i in range(5000):
-    system.Wolff()
-system.plot_state()
+#this is with animation
+system.Wolff_animation(5, delay=1000)
+#this is without (one iteration)
+#system.Wolff()
