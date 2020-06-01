@@ -49,11 +49,10 @@ class Ising:
         """Animated Wolff's single custer algorithm
            In: times (int): number of repetition times
                delay (int): delay between frames in ms"""
-        print(times)
         def update(i):
             image.set_array(self.Wolff())
             return image,
-
+            
         fig = plt.figure()
         ax = fig.add_subplot(111)
         image = ax.imshow(self.state, cmap=plt.cm.PiYG, origin='lower')
