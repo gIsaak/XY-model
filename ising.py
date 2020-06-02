@@ -13,9 +13,9 @@ class Ising:
         self.J = J
         self.T = T
         self.state = np.random.choice([-1.0, 1.0], size=(L,L))
-        self.nbr_hood = [[(i - L) % L*L, (i + L) % L*L,
-                    (i // L) * L + (i + 1) % L,
-                    (i // L) * L + (i - 1) % L] for i in range(L*L)] #NSEW
+        self.nbr_hood = [((i // L) * L + (i + 1) % L, (i + L) % self.N,
+            (i // L) * L + (i - 1) % L, (i - L) % self.N)
+                                    for i in range(self.N)] #NSEW
 
     def __repr__(self):
         """Prints the state of the system as a string"""
@@ -45,13 +45,13 @@ class Ising:
         self.state *= cluster
         return self.state
 
-    def Wolff_animation(self, times, delay=20):
+    def Wolff_animation(self, times, delay=20000):
         """Animated Wolff's single custer algorithm
            In: times (int): number of repetition times
                delay (int): delay between frames in ms"""
         def update(i):
             image.set_array(self.Wolff())
-            return image,
+            return image
             
         fig = plt.figure()
         ax = fig.add_subplot(111)
@@ -68,12 +68,58 @@ class Ising:
     def plot_state(self):
         """Plots system state"""
         plt.matshow(self.state, cmap=plt.cm.PiYG)
-        plt.show()
+#        plt.show()
+        
+    def plot_animation(self):
+        """Plots system state as animation"""
+        return plt.matshow(self.state, cmap=plt.cm.PiYG)
 
 
-L, J, T = 10, 1, 2
-system = Ising(L, J, T)
-#this is with animation
-system.Wolff_animation(5, delay=1000)
-#this is without (one iteration)
-#system.Wolff()
+
+##### Isaccos way of animation #####
+        
+#L, J, T = 10, 1, 2
+#system = Ising(L, J, T)
+##this is with animation
+#system.Wolff_animation(5000, delay=10000)
+##this is without (one iteration)
+##system.Wolff()
+
+##### Ludwigs way of animation #####
+        
+# to stop interactive plotting
+plt.ioff()
+# initialisation of list to safe the state data _a: singele T animation _f: final states for various T
+lattice_a = list()
+lattice_f = list()
+temps = [1.5,1.6,1.7,1.8,1.9,2,2.1,2.2,2.3,2.4,2.5,2.6]
+for t in temps:
+    L, J, T = 50, 1, t
+    system = Ising(L, J, T)
+    nsteps = 50
+    for i in range(nsteps):
+        system.Wolff()
+        # next line saves the plots for singe temperature animation
+#        lattice_a.append(system.plot_animation())
+        plt.close("all")
+        
+    lattice_f.append(system.plot_animation())
+    plt.close("all")
+
+
+l = list()
+for i in lattice_f:
+    l.append(i._A)
+    
+
+##### Plotting #####
+fig = plt.figure()
+im = plt.imshow(l[0], interpolation="none", cmap="Blues")
+title = plt.title("T = {}, J = {}".format(J,T))
+
+def update(t):
+    im.set_array(l[t])
+    title.set_text("J = {}, T = {}, frame no.: {}".format(J,temps[t],str(t)))
+
+ani = animation.FuncAnimation(fig, func=update, frames=nsteps, repeat=False, interval=1000)
+plt.show()
