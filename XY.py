@@ -169,9 +169,9 @@ L, J, T = 20, 1, 1
 xy = XY(L, J, T)
 # Initialize observables
 steps = 5000
-eq_steps = 1000
-waste_steps = 1
-T = np.linspace(0.5, 1.5, 10)
+eq_steps = 2000
+waste_steps = 3
+T = np.linspace(0.5, 1.5, 20)
 
 E_of_t = []
 E2_of_t = []
@@ -198,8 +198,8 @@ for t in T:
     E2_of_t.append(np.mean(np.asarray(E2_acc)))
     M_of_t.append(np.mean(np.asarray(M_acc)))
     M2_of_t.append(np.mean(np.asarray(M2_acc)))
-cv = xy.T**2/xy.N*(np.asarray(E2_of_t) - np.asarray(E_of_t)**2)
-chi = xy.T*xy.N*(np.asarray(M2_of_t) - np.asarray(M_of_t)**2)
+cv = (np.asarray(E2_of_t) - np.asarray(E_of_t)**2)/xy.T**2/xy.N
+chi = (np.asarray(M2_of_t) - np.asarray(M_of_t)**2)*xy.N/xy.T
 
 # plotting
 # E
@@ -219,13 +219,13 @@ fig.tight_layout()  # otherwise the right y-label is slightly clipped
 # M
 fig, ax1 = plt.subplots()
 ax1.set_xlabel('T')
-ax1.set_ylabel('E', color='o')
-ax1.plot(T, M_of_t, color='o')
+ax1.set_ylabel('M', color='m')
+ax1.plot(T, M_of_t, color='m')
 ax1.tick_params(axis='y')
 ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
 color = 'tab:blue'
-ax2.set_ylabel('Cv', color='r')  # we already handled the x-label with ax1
-ax2.plot(T, chi, color='r')
+ax2.set_ylabel('$\chi$', color='c')  # we already handled the x-label with ax1
+ax2.plot(T, chi, color='c')
 ax2.tick_params(axis='y')
 fig.tight_layout()  # otherwise the right y-label is slightly clipped
 plt.show()
