@@ -101,13 +101,11 @@ class XY:
         def update(i):
             self.Wolff()
             X, Y = pol2cart(self.state,1)
-            X = np.asarray(X)
-            Y = np.asarray(Y)
             x = np.arange(0, self.L, 1)
             y = np.arange(0, self.L, 1)
-            q = ax.quiver(x, y, X, Y, pivot='mid', scale_units='xy')
+            q = ax.quiver(x, y, X, Y, pivot='mid')
             return q,
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize = (8, 8))
         ax.set_title('T = %.1f  J = %.1f' %(self.T, self.J), fontsize=20)
         ani = animation.FuncAnimation(fig, update, times, interval=delay,
                                     blit=True, save_count=1000, repeat=False)
@@ -123,12 +121,17 @@ class XY:
 
     def plot_state(self):
         """Plots system state"""
-        plt.matshow(self.state, cmap=plt.cm.twilight)
-        plt.colorbar()
+        X, Y = pol2cart(self.state, 1)
+        x = np.arange(0, self.L, 1)
+        y = np.arange(0, self.L, 1)
+        fig, ax = plt.subplots(figsize = (8, 8))
+        ax.set_title('T = %.1f  J = %.1f' %(self.T, self.J), fontsize=20)
+        q = ax.quiver(x, y, X, Y, pivot='mid')
         plt.show()
 
 
 ## There is something wrong with temperature
 L, J, T = 10, 1, 1.2
 xy = XY(L, J, T)
-xy.Wolff_animation(100, delay=1000)
+xy.Wolff()
+xy.plot_state()

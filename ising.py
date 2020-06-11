@@ -41,7 +41,7 @@ class Ising:
 
     def Wolff(self):
         """Performs one Wolff's single custer algorithm iteration"""
-        location = np.random.randint(0, self.N+1)
+        location = np.random.randint(0, self.N)
         cluster = self._grow_cluster(np.ones(self.state.shape, dtype=float), location)
         self.state = np.multiply(self.state,cluster)
         return self.state
