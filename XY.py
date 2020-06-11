@@ -6,6 +6,13 @@ import time
 sys.setrecursionlimit(10000)
 np.random.seed(42)
 
+def dotUnit(phi1, phi2):
+    """Dot product between two unit vectors in polar coordinates"""
+    x1, y1 = pol2cart(phi1, 1)
+    x2, y2 = pol2cart(phi2, 1)
+    dot = np.multiply(x1, x2) + np.multiply(y1, y2)
+    return dot
+
 def pol2cart(phi, r):
     """Gets Cartesian coordinates from polar ones"""
     x = np.multiply(r, np.cos(phi))
@@ -129,9 +136,98 @@ class XY:
         q = ax.quiver(x, y, X, Y, pivot='mid')
         plt.show()
 
+    def get_magnetization(self):
+        """Computes the magnitude of magnetization of current configuration"""
+        X, Y = pol2cart(self.state,1)
+        return np.sqrt(np.mean(X)**2+np.mean(Y)**2)
 
-## There is something wrong with temperature
-L, J, T = 10, 1, 1.2
+    def get_energy(self):
+        """Computes energy of current configuration"""
+        E = 0
+        for s in range(self.N):
+            i, j = self._get_ij(s)
+            s_ij = self.state[i,j]
+            for nbr in self.nbr_hood[s]:
+                i_nbr, j_nbr = self._get_ij(nbr)
+                s_nbr = self.state[i_nbr, j_nbr]
+                E -= self.J*np.cos(s_nbr-s_ij)
+        return self.J*E/2
+
+    def waste_time(self, steps):
+        """Waste steps steps number of steps"""
+        for i in range(steps):
+            self.Wolff()
+
+    def reset_state(self):
+        """Resets system to original states for given L, J, T"""
+        self.__init__(self.L, self.J, self.T)
+
+
+
+### SIMULATION ###
+L, J, T = 20, 1, 1
 xy = XY(L, J, T)
-xy.Wolff()
-xy.plot_state()
+# Initialize observables
+steps = 5000
+eq_steps = 1000
+waste_steps = 1
+T = np.linspace(0.5, 1.5, 10)
+
+E_of_t = []
+E2_of_t = []
+M_of_t = []
+M2_of_t = []
+for t in T:
+    print('Temperature: ', t)
+    xy.T = t
+    xy.reset_state()
+    xy.waste_time(eq_steps)
+    E_acc, E2_acc = [], []
+    M_acc, M2_acc = [], []
+    for i in range(eq_steps):
+        xy.waste_time(waste_steps)
+        # energy
+        E = xy.get_energy()
+        E_acc.append(E)
+        E2_acc.append(E*E)
+        # magnetization
+        M = xy.get_magnetization()
+        M_acc.append(M)
+        M2_acc.append(M*M)
+    E_of_t.append(np.mean(np.asarray(E_acc)))
+    E2_of_t.append(np.mean(np.asarray(E2_acc)))
+    M_of_t.append(np.mean(np.asarray(M_acc)))
+    M2_of_t.append(np.mean(np.asarray(M2_acc)))
+cv = xy.T**2/xy.N*(np.asarray(E2_of_t) - np.asarray(E_of_t)**2)
+chi = xy.T*xy.N*(np.asarray(M2_of_t) - np.asarray(M_of_t)**2)
+
+# plotting
+# E
+fig, ax1 = plt.subplots()
+ax1.set_xlabel('T')
+ax1.set_ylabel('E', color='b')
+ax1.plot(T, E_of_t, color='b')
+ax1.tick_params(axis='y')
+ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+color = 'tab:blue'
+ax2.set_ylabel('Cv', color='g')  # we already handled the x-label with ax1
+ax2.plot(T, cv, color='g')
+ax2.tick_params(axis='y')
+fig.tight_layout()  # otherwise the right y-label is slightly clipped
+
+
+# M
+fig, ax1 = plt.subplots()
+ax1.set_xlabel('T')
+ax1.set_ylabel('E', color='o')
+ax1.plot(T, M_of_t, color='o')
+ax1.tick_params(axis='y')
+ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+color = 'tab:blue'
+ax2.set_ylabel('Cv', color='r')  # we already handled the x-label with ax1
+ax2.plot(T, chi, color='r')
+ax2.tick_params(axis='y')
+fig.tight_layout()  # otherwise the right y-label is slightly clipped
+plt.show()
+
+plt.show()
