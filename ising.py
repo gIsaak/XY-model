@@ -41,7 +41,7 @@ class Ising:
 
     def Wolff(self):
         """Performs one Wolff's single custer algorithm iteration"""
-        location = np.random.randint(0, self.N)
+        location = np.random.randint(0, self.N+1)
         cluster = self._grow_cluster(np.ones(self.state.shape, dtype=float), location)
         self.state = np.multiply(self.state,cluster)
         return self.state
@@ -70,6 +70,6 @@ class Ising:
         plt.show()
 
 ## There is something wrong with temperature
-L, J, T = 10, 1, 3
+L, J, T = 100, 1, 1
 ising = Ising(L, J, T)
-ising.Wolff_animation(5, delay=1000)
+ising.Wolff_animation(10000, delay=100)

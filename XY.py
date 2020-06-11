@@ -6,48 +6,32 @@ import time
 sys.setrecursionlimit(10000)
 np.random.seed(42)
 
-def sawtooth(x, T=2*np.pi, A=np.pi):
-    """Sawtooth function of period T and amplitude A centered in 0
-        In: x (nparray): sawtooth input
-            T (float): period
-            A (float): amplitude"""
-    return 2*A*(x/T - np.floor(0.5 + x/T))
+def pol2cart(phi, r):
+    """Gets Cartesian coordinates from polar ones"""
+    x = np.multiply(r, np.cos(phi))
+    y = np.multiply(r, np.sin(phi))
+    return x, y
 
-def addPolar(phi1, r1, phi2, r2):
-    """Add two (array of) vectors r1 + r2 in polar coordinates
-       angle from [-pi, pi)
-        In: phi1 (nparray): angle of first vector
-            r1 (nparray): modulus of first vectors
-            phi2 (nparray): angle of second vector
-            r2 (nparray): modulus of second vectors
-            T (float): period
-        Out: r (nparray): modulus of result
-             phi (ndarray): angle of result"""
-    cos = np.cos(phi2 - phi1)
-    sin = np.sin(phi2 - phi1)
-    r1r2 = np.multiply(r1, r2)
-    r = np.sqrt(r1**2 + r2**2 + 2*np.multiply(r1r2, cos))
-    phi = phi1 + np.arctan2(np.multiply(r2, sin), r1 + np.multiply(r2, cos))
-    phi = sawtooth(phi)
+def cart2pol(x, y):
+    """Gets polar coordinates from cartesian ones"""
+    r = np.sqrt(x**2 + y**2)
+    phi = np.arctan2(y, x)
     return phi, r
 
-def subtractPolar(phi1, r1, phi2, r2):
-    """Subtract two (array of) vectors r1 + r2 in polar coordinates
-       angle from [-pi, pi)
-        In: phi1 (nparray): angle of first vector
-            r1 (nparray): modulus of first vectors
-            phi2 (nparray): angle of second vector
-            r2 (nparray): modulus of second vectors
-            T (float): period
-        Out: r (nparray): modulus of result
-             phi (ndarray): angle of result"""
-    cos = np.cos(phi2 - phi1)
-    sin = np.sin(phi2 - phi1)
-    r1r2 = np.multiply(r1, r2)
-    r = np.sqrt(r1**2 + r2**2 - 2*np.multiply(r1r2, cos))
-    phi = phi1 + np.arctan2(-np.multiply(r2, sin), r1 - np.multiply(r2, cos))
-    phi = sawtooth(phi)
-    return phi, r
+def get_comp(phi1, r1, phi2, r2):
+    """Decomposes vector (phi1, r1) along specified vector (phi2, r2)
+        Input in polar coordinates
+        Output cartesian coordinates
+        (x_p, y_p): parallel component
+        (x_s, y_s): perpendicular component"""
+    x1, y1 = pol2cart(phi1, r1)
+    x2, y2 = pol2cart(phi2, r2)
+    dot = np.multiply(x1, x2) + np.multiply(y1, y2)
+    x_p = np.multiply(np.divide(dot, r2**2), x2)
+    y_p = np.multiply(np.divide(dot, r2**2), y2)
+    x_s = x1 - x_p
+    y_s = y1 - y_p
+    return x_p, y_p, x_s, y_s
 
 class XY:
     """2D XY model with peridic boundary conditions
@@ -58,12 +42,13 @@ class XY:
         self.N = L*L
         self.J = J
         self.T = T
-        self.state = np.random.uniform(-1, 1, size=(L,L))*np.pi
-        self.eps = np.zeros(self.state.shape)
-        self.r_p = np.zeros(self.state.shape) #parallel
-        self.phi_p = np.zeros(self.state.shape)
-        self.r_s = np.zeros(self.state.shape) #senkrecht
-        self.phi_s = np.zeros(self.state.shape)
+        self.state = np.random.uniform(-np.pi, np.pi, size=(L,L))
+        self.eps = None
+        self.x_p = None #parallel
+        self.y_p = None
+        self.r_p = None
+        self.x_s = None #senkrecht
+        self.y_s = None
         self.nbr_hood = [[(i - L) % self.N, (i + L) % self.N,
                     (i // L) * L + (i + 1) % L,
                     (i // L) * L + (i - 1) % L] for i in range(self.N)] #NSEW
@@ -72,11 +57,10 @@ class XY:
         """Private method to project lattice of spins onto u
             u in interval [-pi, pi)
             In: u (float): direction u (angle)"""
-        cos = np.cos(self.state - u)
-        self.eps = np.sign(cos)
-        self.phi_p = sawtooth(np.multiply(self.eps, u))
-        self.r_p = np.abs(cos)
-        self.phi_s, self.r_s = subtractPolar(self.state, 1, self.phi_p, self.r_p)
+        u_x, u_y = pol2cart(u, 1)
+        self.x_p, self.y_p, self.x_s, self.y_s = get_comp(self.state, 1, u, 1)
+        self.r_p = np.sqrt(self.x_p**2 + self.y_p**2)
+        self.eps = np.sign(self.x_p/u_x + self.y_p/u_y)
 
     def _grow_cluster(self, cluster, location):
         """Private method to recursively generate cluster for Wolff's single cluster algorithm
@@ -91,23 +75,23 @@ class XY:
             i_nbr, j_nbr = self._get_ij(nbr)
             if cluster[i_nbr, j_nbr] == 1 and self.eps[i_nbr, j_nbr] == self.eps[i, j]:
                 J = self.J*self.r_p[i,j]*self.r_p[i_nbr, j_nbr]
-                p = np.random.rand()
-                if p < (1 - np.exp(-2*J/self.T)):
+                if np.random.rand() < (1 - np.exp(-2*J/self.T)):
                     cluster = self._grow_cluster(cluster, nbr)
         return cluster
 
     def Wolff(self):
         """Performs one Wolff's single custer algorithm iteration"""
         # embed Ising onto XY
-        u = np.random.uniform(-1, 1)*np.pi
+        u = np.random.uniform(-np.pi, np.pi)
         self._project(u)
         # do wolff on embedded Ising
-        location = np.random.randint(0, self.N)
+        location = np.random.randint(0, self.N+1)
         cluster = self._grow_cluster(np.ones(self.eps.shape, dtype=float), location)
         self.eps = np.multiply(self.eps, cluster)
         # compute new XY lattice state
-        self.phi_p = sawtooth(np.multiply(self.eps, self.phi_p))
-        self.state, _ = addPolar(self.phi_s, self.r_s, self.phi_p, self.r_p)
+        self.x_p = np.multiply(cluster, self.x_p)
+        self.y_p = np.multiply(cluster, self.y_p)
+        self.state, r = cart2pol(self.x_p + self.x_s, self.y_p + self.y_s)
         return self.state
 
     def Wolff_animation(self, times, delay=20):
@@ -139,7 +123,8 @@ class XY:
         plt.colorbar()
         plt.show()
 
+
 ## There is something wrong with temperature
-L, J, T = 10, 1, 3
+L, J, T = 100, 1, 1.2
 xy = XY(L, J, T)
-xy.Wolff_animation(10, delay=1000)
+xy.Wolff_animation(10000)
