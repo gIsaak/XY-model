@@ -3,6 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import time
+import bootstrapped.bootstrap as bs
+import bootstrapped.stats_functions as bs_stats
 sys.setrecursionlimit(10000)
 np.random.seed(42)
 
@@ -39,6 +41,13 @@ def get_comp(phi1, r1, phi2, r2):
     x_s = x1 - x_p
     y_s = y1 - y_p
     return x_p, y_p, x_s, y_s
+
+def boot_mean_std(array):
+    a = np.asarray(array)
+    a_avg = bs.bootstrap(a, stat_func=bs_stats.mean)
+    a_std = bs.bootstrap(a, stat_func=bs_stats.std)
+    return a_avg.value, a_std.value
+    
 
 class XY:
     """2D XY model with peridic boundary conditions
@@ -162,6 +171,22 @@ class XY:
         """Resets system to original states for given L, J, T"""
         self.__init__(self.L, self.J, self.T)
 
+# L, J, T = 20, 1, 1.2
+# xy = XY(L, J, T)
+
+
+
+# for t in np.linspace(0.1,2,15):
+#     xy.T = t
+#     history = []
+#     for j in range(5000):
+#         xy.Wolff()
+#         if j > 1000:
+#             history.append(xy.magnetization())
+#     a_avg = bs.bootstrap(np.asarray(history), stat_func=bs_stats.mean)
+#     a_std = bs.bootstrap(np.asarray(history), stat_func=bs_stats.std)
+#     history_m.append(a_avg.value)
+#     history_m_err.append(a_std.value)
 
 
 ### SIMULATION ###
@@ -169,14 +194,18 @@ L, J, T = 20, 1, 1
 xy = XY(L, J, T)
 # Initialize observables
 steps = 5000
-eq_steps = 2000
-waste_steps = 3
-T = np.linspace(0.5, 1.5, 20)
+eq_steps = 1000
+waste_steps = 1
+T = np.linspace(0.5, 1.5, 5)
 
 E_of_t = []
+dE_of_t = []
 E2_of_t = []
+dE2_of_t = []
 M_of_t = []
+dM_of_t = []
 M2_of_t = []
+dM2_of_t = []
 for t in T:
     print('Temperature: ', t)
     xy.T = t
@@ -194,10 +223,22 @@ for t in T:
         M = xy.get_magnetization()
         M_acc.append(M)
         M2_acc.append(M*M)
-    E_of_t.append(np.mean(np.asarray(E_acc)))
-    E2_of_t.append(np.mean(np.asarray(E2_acc)))
-    M_of_t.append(np.mean(np.asarray(M_acc)))
-    M2_of_t.append(np.mean(np.asarray(M2_acc)))
+        
+    E_mean, E_std = boot_mean_std(E_acc)
+    E2_mean, E2_std = boot_mean_std(E2_acc)
+    M_mean, M_std = boot_mean_std(M_acc)
+    M2_mean, M2_std = boot_mean_std(M2_acc)
+    
+    E_of_t.append(E_mean)
+    dE_of_t.append(E_std)
+    E2_of_t.append(E2_mean)
+    dE2_of_t.append(E2_std)
+    
+    M_of_t.append(M_mean)
+    dM_of_t.append(M_std)
+    M2_of_t.append(M2_mean)
+    dM2_of_t.append(M2_std)
+
 cv = (np.asarray(E2_of_t) - np.asarray(E_of_t)**2)/xy.T**2/xy.N
 chi = (np.asarray(M2_of_t) - np.asarray(M_of_t)**2)*xy.N/xy.T
 
@@ -206,10 +247,9 @@ chi = (np.asarray(M2_of_t) - np.asarray(M_of_t)**2)*xy.N/xy.T
 fig, ax1 = plt.subplots()
 ax1.set_xlabel('T')
 ax1.set_ylabel('E', color='b')
-ax1.plot(T, E_of_t, color='b')
+ax1.errorbar(T, E_of_t, yerr=dE_of_t, color='b')
 ax1.tick_params(axis='y')
 ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
-color = 'tab:blue'
 ax2.set_ylabel('Cv', color='g')  # we already handled the x-label with ax1
 ax2.plot(T, cv, color='g')
 ax2.tick_params(axis='y')
@@ -220,14 +260,12 @@ fig.tight_layout()  # otherwise the right y-label is slightly clipped
 fig, ax1 = plt.subplots()
 ax1.set_xlabel('T')
 ax1.set_ylabel('M', color='m')
-ax1.plot(T, M_of_t, color='m')
+ax1.errorbar(T, M_of_t, yerr=dM_of_t, color='m')
 ax1.tick_params(axis='y')
 ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
-color = 'tab:blue'
 ax2.set_ylabel('$\chi$', color='c')  # we already handled the x-label with ax1
 ax2.plot(T, chi, color='c')
 ax2.tick_params(axis='y')
 fig.tight_layout()  # otherwise the right y-label is slightly clipped
 plt.show()
 
-plt.show()
